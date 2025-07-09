@@ -14,7 +14,7 @@ export default function GiftWise() {
   const [expanded, setExpanded] = useState({})
   const [ageGroup, setAgeGroup] = useState('');
   const [interest, setInterest] = useState('');
-  
+
 const fetchGifts = useCallback(async () => {
   setLoading(true)
   try {
@@ -33,12 +33,54 @@ const fetchGifts = useCallback(async () => {
     }
 
     const data = await response.json()
-    setResults(data[0]?.recommendations || [])
+
+    const basicGifts = data[0].recommendations || [];
+
+    setResults(
+      basicGifts.map(g => ({
+        ...g,
+        image: null,
+        link: null,
+      }))
+    );
+
+ 
+    fetchEbayData(basicGifts);
+
   } catch (err) {
     console.error('Gift fetch failed:', err)
   }
   setLoading(false)
 }, [input, ageGroup, interest])
+
+const fetchEbayData = async (giftArray) => {
+  try {
+    const res = await fetch('https://vlad1999.app.n8n.cloud/webhook/giftwiseai/ebay-fetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        products: giftArray.map(item => ({
+          title: item.title,
+          ebaySearch: item.ebaySearch,
+        })),
+      }),
+    });
+
+    const ebayResults = await res.json();
+
+    // Replace gift fields with eBay results
+    const enriched = giftArray.map((gift, i) => ({
+      ...gift,
+      image: ebayResults[i]?.image || null,
+      link: ebayResults[i]?.link || null,
+    }));
+
+    setResults(enriched);
+
+  } catch (err) {
+    console.error('Failed to fetch eBay data:', err);
+  }
+};
 
 
   return (
